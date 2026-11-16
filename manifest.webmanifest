@@ -1,0 +1,15 @@
+{
+  "name": "레푸스 근무표",
+  "short_name": "레푸스 근무표",
+  "description": "휴무 신청만 넣으면 한 달 직원 근무표를 자동으로 짜 주는 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#E31837",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}
