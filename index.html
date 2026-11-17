@@ -146,6 +146,20 @@ table.sum td.diff{color:var(--red);font-weight:800}
 
 .edited-note{font-size:15px;color:var(--grey);margin-top:8px}
 .print-title{display:none}
+.mode-staff .admin-only{display:none!important}
+#cloudBar{margin-top:14px;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 14px;box-shadow:var(--shadow);font-size:16px}
+#cloudBar .bar-t{flex:1;line-height:1.4}
+#cloudBar .bar-s{color:var(--red);font-size:14px}
+#cloudBar .dot{width:12px;height:12px;border-radius:50%;background:#2DB37A;flex:none;box-shadow:0 0 0 4px rgba(45,179,122,.15)}
+#cloudBar .dot.warn{background:#F0A030;box-shadow:0 0 0 4px rgba(240,160,48,.18)}
+.link-row{background:var(--blush);border-radius:18px;padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.link-l{display:flex;flex-direction:column;gap:2px;font-size:16px}
+.link-l b{font-size:18px}
+.link-l span{color:var(--grey);font-size:15px}
+.link-l .warn-t{color:var(--red);font-weight:700}
+.link-row input[type=text]{width:100%;font-size:15px;height:46px;color:var(--soft-ink)}
+.cloud-err{color:var(--red);font-weight:700}
+.lockmsg{background:#FFF0F3;border:1.5px solid #F6B7C4;color:var(--rose-deep);font-weight:700;border-radius:14px;padding:10px 14px;margin-bottom:12px}
 footer{margin-top:36px;color:var(--grey);font-size:14px;text-align:center}
 
 @media (max-width:640px){
@@ -219,6 +233,7 @@ footer{margin-top:36px;color:var(--grey);font-size:14px;text-align:center}
   </div>
 </header>
 <div class="redbar no-print"></div>
+<div class="wrap no-print"><div id="cloudBar" style="display:none"></div></div>
 
 <main class="wrap">
 
@@ -231,21 +246,21 @@ footer{margin-top:36px;color:var(--grey);font-size:14px;text-align:center}
     </div>
   </section>
 
-  <section class="step">
+  <section class="step admin-only">
     <div class="step-h"><div class="num">2</div><h2>직원 등록</h2></div>
     <p class="hint">이름과 한 주에 쉬는 날 수를 적어 주세요.</p>
     <div class="staff-list" id="staffList"></div>
     <div class="row" style="margin-top:12px"><button class="btn dark" id="addStaff">+ 직원 추가</button></div>
   </section>
 
-  <section class="step">
+  <section class="step admin-only">
     <div class="step-h"><div class="num">3</div><h2>매장 정기 휴무 요일</h2></div>
     <p class="hint">매장이 문 닫는 요일을 눌러 주세요. 여러 개 고를 수 있어요.</p>
     <div class="dows" id="dows"></div>
     <label class="check"><input type="checkbox" id="closedCounts"> 정기 휴무일도 직원의 주당 휴무일로 셉니다</label>
   </section>
 
-  <section class="step">
+  <section class="step admin-only">
     <div class="step-h"><div class="num">4</div><h2>하루 필요 인원</h2></div>
     <div class="row">
       <label class="lbl" for="needWd">평일</label><input type="number" id="needWd" min="0" max="30"><span>명</span>
@@ -256,19 +271,25 @@ footer{margin-top:36px;color:var(--grey);font-size:14px;text-align:center}
 
   <section class="step">
     <div class="step-h"><div class="num">5</div><h2>휴무 신청</h2></div>
-    <p class="hint">직원 이름을 먼저 고르고, 쉬고 싶은 날짜를 누르세요. 다시 누르면 취소돼요.</p>
+    <p class="hint" id="reqHint">직원 이름을 먼저 고르고, 쉬고 싶은 날짜를 누르세요. 다시 누르면 취소돼요.</p>
+    <div class="lockmsg" id="lockMsg" style="display:none"></div>
     <div class="who" id="who"></div>
     <div class="cal" id="cal"></div>
   </section>
 
-  <section class="step plain">
+  <section class="step plain admin-only">
     <button class="btn red big" id="makeBtn">근무표 자동 짜기</button>
   </section>
   </div>
 
   <section id="result"></section>
 
-  <footer class="no-print">입력한 내용은 이 컴퓨터(브라우저)에 자동 저장됩니다. 다른 기기에서는 따로 입력해야 해요.</footer>
+  <section class="step admin-only no-print" id="cloudSec">
+    <div class="step-h"><div class="num">6</div><h2>직원과 함께 쓰기</h2></div>
+    <div id="cloudBox"></div>
+  </section>
+
+  <footer class="no-print" id="footNote">입력한 내용은 이 기기(브라우저)에 자동 저장됩니다.</footer>
 </main>
 
 <script>
@@ -353,8 +374,8 @@ function renderYM(){
   for(var m=1; m<=12; m++) h += '<option value="'+m+'"'+(m===S.month?' selected':'')+'>'+m+'월</option>';
   ms.innerHTML = h;
 }
-$('year').addEventListener('change', function(){ S.year = +this.value; save(); renderAll(); });
-$('month').addEventListener('change', function(){ S.month = +this.value; save(); renderAll(); });
+$('year').addEventListener('change', function(){ S.year = +this.value; save(); subscribeMonth(); renderAll(); });
+$('month').addEventListener('change', function(){ S.month = +this.value; save(); subscribeMonth(); renderAll(); });
 
 /* ---------- 2. 직원 ---------- */
 function renderStaff(){
@@ -373,7 +394,7 @@ $('staffList').addEventListener('input', function(e){
   var s = S.staff.filter(function(x){ return x.id === row.dataset.id; })[0]; if(!s) return;
   if(e.target.classList.contains('nm')) s.name = e.target.value;
   if(e.target.classList.contains('off')){ var v = parseInt(e.target.value,10); s.off = isNaN(v)?0:Math.max(0,Math.min(7,v)); }
-  save(); renderWho(); renderCal(); renderResult();
+  save(); cloudSettings(); renderWho(); renderCal(); renderResult();
 });
 $('staffList').addEventListener('click', function(e){
   if(!e.target.classList.contains('del')) return;
@@ -382,13 +403,13 @@ $('staffList').addEventListener('click', function(e){
   if(!s || !confirm((s.name||'이 직원') + ' 님을 목록에서 뺄까요?')) return;
   S.staff = S.staff.filter(function(x){ return x.id !== s.id; });
   if(S.sel === s.id) S.sel = S.staff[0] ? S.staff[0].id : null;
-  save(); renderAll();
+  save(); cloudSettings(); renderAll();
 });
 $('addStaff').addEventListener('click', function(){
   var id = 's' + (S.nextId++);
   S.staff.push({id:id, name:'', off:2});
   S.sel = id;
-  save(); renderAll();
+  save(); cloudSettings(); renderAll();
   var inputs = document.querySelectorAll('#staffList .nm');
   if(inputs.length) inputs[inputs.length-1].focus();
 });
@@ -404,18 +425,33 @@ $('dows').addEventListener('click', function(e){
   var b = e.target.closest('.dow'); if(!b) return;
   var i = +b.dataset.i, k = S.closed.indexOf(i);
   if(k>=0) S.closed.splice(k,1); else S.closed.push(i);
-  save(); renderDows(); renderCal(); renderResult();
+  save(); cloudSettings(); renderDows(); renderCal(); renderResult();
 });
-$('closedCounts').addEventListener('change', function(){ S.closedCounts = this.checked; save(); renderResult(); });
+$('closedCounts').addEventListener('change', function(){ S.closedCounts = this.checked; save(); cloudSettings(); renderResult(); });
 
 /* ---------- 4. 필요 인원 ---------- */
 function renderNeed(){ $('needWd').value = S.needWd; $('needWe').value = S.needWe; }
 ['needWd','needWe'].forEach(function(k){
-  $(k).addEventListener('input', function(){ var v = parseInt(this.value,10); S[k] = isNaN(v)?0:Math.max(0,v); save(); renderResult(); });
+  $(k).addEventListener('input', function(){ var v = parseInt(this.value,10); S[k] = isNaN(v)?0:Math.max(0,v); save(); cloudSettings(); renderResult(); });
 });
 
 /* ---------- 5. 휴무 신청 ---------- */
 function renderWho(){
+  if(isStaff()){
+    var me = S.staff.filter(function(s){ return s.id === S.me; })[0], hw = '';
+    if(me){
+      S.sel = me.id;
+      var n0 = reqOf(me.id).filter(function(d){ return d<=dim() && !isClosed(d); }).length;
+      hw = '<button type="button" class="on" data-id="'+me.id+'">'+esc(me.name||'(이름 없음)')+'<small>'+n0+'일</small></button>'+
+           '<button type="button" data-me="change" style="border-color:transparent;background:var(--blush);color:var(--grey);font-weight:600">이름 바꾸기</button>';
+    } else {
+      S.sel = null;
+      hw = '<p class="hint" style="width:100%;margin:0 0 4px;color:var(--rose-deep);font-weight:700">먼저 내 이름을 눌러 주세요.</p>';
+      S.staff.forEach(function(s){ hw += '<button type="button" data-me="'+s.id+'">'+esc(s.name||'(이름 없음)')+'</button>'; });
+      if(!S.staff.length) hw = '<p class="hint" style="margin:0">아직 직원 명단이 없어요. 지점장님께 말씀해 주세요.</p>';
+    }
+    $('who').innerHTML = hw; return;
+  }
   if(!S.sel || !S.staff.some(function(s){ return s.id===S.sel; })) S.sel = S.staff[0] ? S.staff[0].id : null;
   var h = '';
   S.staff.forEach(function(s){
@@ -426,6 +462,8 @@ function renderWho(){
 }
 $('who').addEventListener('click', function(e){
   var b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.me){ S.me = b.dataset.me === 'change' ? null : b.dataset.me; save(); renderWho(); renderCal(); return; }
+  if(isStaff()) return;
   S.sel = b.dataset.id; save(); renderWho(); renderCal();
 });
 function renderCal(){
@@ -447,7 +485,10 @@ function renderCal(){
   $('cal').innerHTML = h;
 }
 $('cal').addEventListener('click', function(e){
-  var c = e.target.closest('button.cell'); if(!c || !S.sel) return;
+  var c = e.target.closest('button.cell'); if(!c) return;
+  if(isStaff() && !S.me){ alert('먼저 위에서 내 이름을 눌러 주세요.'); return; }
+  if(!S.sel) return;
+  if(isStaff() && CL.locked[mk()]){ alert(S.month + '월 휴무 신청은 마감됐어요. 지점장님께 말씀해 주세요.'); return; }
   var d = +c.dataset.d, k = mk();
   if(!S.requests[k]) S.requests[k] = {};
   var list = S.requests[k][S.sel] || [];
@@ -455,7 +496,7 @@ $('cal').addEventListener('click', function(e){
   if(i>=0) list.splice(i,1); else list.push(d);
   list.sort(function(a,b){ return a-b; });
   S.requests[k][S.sel] = list;
-  save(); renderWho(); renderCal(); renderResult();
+  save(); cloudReq(S.sel, d, i < 0); renderWho(); renderCal(); renderResult();
 });
 
 /* ---------- 목표 근무일 ---------- */
@@ -622,7 +663,7 @@ function generate(){
   var out = {};
   staff.forEach(function(s){ out[s.id] = grid[s.id].join('').slice(1); });
   S.schedules[mk()] = {rows:out, edited:false, at:Date.now(), days:D};
-  save();
+  save(); cloudSchedule();
 }
 
 /* ---------- 점검 ---------- */
@@ -678,6 +719,7 @@ function analyze(sc){
 function renderResult(){
   var box = $('result'), sc = S.schedules[mk()];
   if(!sc || sc.days !== dim()){
+    if(isStaff()){ box.innerHTML = '<div class="empty no-print">' + S.year + '년 ' + S.month + '월 근무표가 아직 나오지 않았어요.<br>지점장님이 근무표를 짜면 여기에 바로 보여요.</div>'; return; }
     box.innerHTML = '<div class="empty no-print">' + S.year + '년 ' + S.month + '월 근무표가 아직 없어요.<br>위의 <b style="color:var(--red)">근무표 자동 짜기</b> 버튼을 눌러 주세요.</div>';
     return;
   }
@@ -687,7 +729,7 @@ function renderResult(){
   h += '<div class="print-title">레푸스 ' + S.year + '년 ' + S.month + '월 근무표</div>';
   h += '<div class="result-h"><h2>' + S.year + '년 ' + S.month + '월 근무표</h2>'+
     '<div class="tools no-print">'+
-      '<button class="btn red" id="redoBtn">다시 짜기</button>'+
+      '<button class="btn red admin-only" id="redoBtn">다시 짜기</button>'+
       '<button class="btn dark" id="printBtn">인쇄</button>'+
       '<button class="btn" id="csvBtn">엑셀(CSV) 내려받기</button>'+
     '</div></div>';
@@ -695,7 +737,7 @@ function renderResult(){
     '<span><b class="O">휴</b>휴무</span>'+
     '<span><b class="R">신</b>휴무 신청</span>'+
     '<span><b class="X">정</b>매장 정기 휴무</span>'+
-    '<span class="no-print">칸을 누르면 근무↔휴무가 바뀝니다</span></div>';
+    '<span class="no-print admin-only">칸을 누르면 근무↔휴무가 바뀝니다</span></div>';
   if(missing) h += '<p class="edited-note no-print">새로 추가한 직원은 아직 근무표에 반영되지 않았어요. <b>다시 짜기</b>를 눌러 주세요.</p>';
 
   h += '<div class="tbl-wrap"><table class="roster"><thead><tr><th class="name">이름</th>';
@@ -726,7 +768,7 @@ function renderResult(){
     h += '<td class="' + (n<need(d4)?'bad':'') + '">' + n + '/' + need(d4) + '</td>';
   }
   h += '<td></td><td></td></tr></tbody></table></div>';
-  if(sc.edited) h += '<p class="edited-note no-print">직접 고친 내용이 있어요. 다시 짜기를 누르면 고친 내용은 사라집니다.</p>';
+  if(sc.edited && !isStaff()) h += '<p class="edited-note no-print">직접 고친 내용이 있어요. 다시 짜기를 누르면 고친 내용은 사라집니다.</p>';
 
   if(A.list.length){
     h += '<div class="problems"><h3>확인이 필요한 날 ' + A.list.length + '건</h3><ul>';
@@ -764,13 +806,13 @@ $('result').addEventListener('click', function(e){
   }
   if(t.id === 'printBtn'){ window.print(); return; }
   if(t.id === 'csvBtn'){ downloadCSV(); return; }
-  var c = t.closest('td.c'); if(!c || !c.dataset.s) return;
+  var c = t.closest('td.c'); if(!c || !c.dataset.s || isStaff()) return;
   var sc2 = S.schedules[mk()], id = c.dataset.s, d = +c.dataset.d;
   var row = rowOf(sc2, id);
   row[d] = row[d]==='W' ? 'O' : 'W';
   sc2.rows[id] = row.slice(1).join('');
   sc2.edited = true;
-  save();
+  save(); cloudSchedule();
   var x = window.scrollX, y = window.scrollY, wrap = document.querySelector('.tbl-wrap'), sl = wrap ? wrap.scrollLeft : 0;
   renderResult();
   var w2 = document.querySelector('.tbl-wrap'); if(w2) w2.scrollLeft = sl;
@@ -820,8 +862,264 @@ $('makeBtn').addEventListener('click', function(){
   $('result').scrollIntoView({behavior:'smooth', block:'start'});
 });
 
-function renderAll(){ renderYM(); renderStaff(); renderDows(); renderNeed(); renderWho(); renderCal(); renderResult(); }
+/* ---------- 함께 쓰기 (Firebase) ---------- */
+var FB_CONFIG = {"apiKey":"AIzaSyAtuPCuDPiVaRqnnfRFMyIiC0jjCM2WbFc","authDomain":"refuss-roster.firebaseapp.com","projectId":"refuss-roster","storageBucket":"refuss-roster.firebasestorage.app","messagingSenderId":"311081351309","appId":"1:311081351309:web:4df8c8b98c36f21352cac4"};
+var FB_VER = '10.12.2';
+var LINK_KEY = 'refuss_cloud_link';
+var CL = {on:false, role:null, sid:null, key:null, db:null, f:null, uid:null,
+  unsubStore:null, unsubMonth:null, locked:{}, status:'', storeName:'', setTimer:null};
+
+function canCloud(){ return !!FB_CONFIG && location.protocol.indexOf('http') === 0; }
+function isStaff(){ return CL.on && CL.role === 'staff'; }
+function isAdminMode(){ return !CL.on || CL.role === 'admin'; }
+function rid(n){
+  var c = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', a = new Uint8Array(n), s = '';
+  crypto.getRandomValues(a);
+  for(var i=0; i<n; i++) s += c.charAt(a[i] % c.length);
+  return s;
+}
+function parseHash(){
+  var o = {};
+  location.hash.replace(/^#/, '').split('&').forEach(function(p){
+    var kv = p.split('='); if(kv[0]) o[kv[0]] = decodeURIComponent(kv[1] || '');
+  });
+  return o;
+}
+function baseUrl(){ return location.origin + location.pathname; }
+function staffLink(){ return baseUrl() + '#s=' + CL.sid; }
+function adminLink(){ return CL.key ? baseUrl() + '#s=' + CL.sid + '&k=' + CL.key : ''; }
+function setStatus(t){ CL.status = t || ''; renderCloud(); }
+
+function fb(){
+  if(CL.f) return Promise.resolve(CL.f);
+  var base = 'https://www.gstatic.com/firebasejs/' + FB_VER + '/';
+  return Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')])
+  .then(function(m){
+    var app = m[0].initializeApp(FB_CONFIG), auth = m[1], fs = m[2], db;
+    try{ db = fs.initializeFirestore(app, {localCache: fs.persistentLocalCache()}); }
+    catch(e){ db = fs.getFirestore(app); }
+    var au = auth.getAuth(app);
+    return new Promise(function(res){ var u = auth.onAuthStateChanged(au, function(){ u(); res(); }); })
+    .then(function(){ return au.currentUser ? null : auth.signInAnonymously(au); })
+    .then(function(){ CL.uid = au.currentUser.uid; CL.db = db; CL.f = fs; return fs; });
+  });
+}
+function storeRef(){ return CL.f.doc(CL.db, 'stores', CL.sid); }
+function monthRef(k){ return CL.f.doc(CL.db, 'stores', CL.sid, 'months', k || mk()); }
+function settingsData(){
+  return {staff:S.staff, closed:S.closed, closedCounts:!!S.closedCounts, needWd:S.needWd, needWe:S.needWe, nextId:S.nextId, updatedAt:Date.now()};
+}
+function errMsg(e){
+  var c = (e && e.code) || '';
+  if(c.indexOf('permission') >= 0) return '권한이 없어요. 링크가 맞는지 확인해 주세요.';
+  if(c.indexOf('unavailable') >= 0) return '인터넷 연결이 끊겼어요. 연결되면 자동으로 다시 저장돼요.';
+  return '문제가 생겼어요 (' + (c || (e && e.message) || '알 수 없음') + ')';
+}
+
+/* 지점장: 매장 만들기 (지금 이 기기의 내용을 그대로 옮김) */
+function createStore(){
+  var name = prompt('매장 이름을 적어 주세요 (예: 레푸스 강남점)', '레푸스 ');
+  if(name === null) return;
+  name = name.trim() || '레푸스';
+  setStatus('매장을 만드는 중이에요…');
+  fb().then(function(fs){
+    var sid = rid(20), key = rid(28), b = fs.writeBatch(CL.db);
+    b.set(fs.doc(CL.db, 'secrets', sid), {key:key});
+    b.set(fs.doc(CL.db, 'stores', sid, 'admins', CL.uid), {key:key});
+    var st = settingsData(); st.name = name; st.createdAt = Date.now();
+    b.set(fs.doc(CL.db, 'stores', sid), st);
+    var months = {};
+    Object.keys(S.requests || {}).forEach(function(k){ months[k] = true; });
+    Object.keys(S.schedules || {}).forEach(function(k){ months[k] = true; });
+    Object.keys(months).forEach(function(k){
+      var d = {requests: S.requests[k] || {}};
+      if(S.schedules[k]) d.schedule = S.schedules[k];
+      b.set(fs.doc(CL.db, 'stores', sid, 'months', k), d);
+    });
+    return b.commit().then(function(){
+      try{ localStorage.setItem('refuss_cloud_' + sid, JSON.stringify(S)); }catch(e){}
+      connect(sid, key);
+    });
+  }).catch(function(e){ setStatus('매장을 만들지 못했어요. ' + errMsg(e)); });
+}
+
+/* 링크로 연결 */
+function connect(sid, key){
+  if(CL.unsubStore) CL.unsubStore();
+  if(CL.unsubMonth) CL.unsubMonth();
+  CL.sid = sid; CL.key = key || null; CL.on = true; CL.role = key ? 'admin' : 'staff';
+  KEY = 'refuss_cloud_' + sid;
+  var cached = load();
+  if(cached && cached.staff){ cached.year = S.year; cached.month = S.month; S = cached; }
+  else S = {year:S.year, month:S.month, staff:[], closed:[], closedCounts:true, needWd:2, needWe:3, requests:{}, schedules:{}, nextId:1, sel:null};
+  if(!S.requests) S.requests = {};
+  if(!S.schedules) S.schedules = {};
+  try{ history.replaceState(null, '', '#s=' + sid); }catch(e){}
+  setStatus('연결하는 중이에요…');
+  applyMode(); renderAll();
+
+  fb().then(function(fs){
+    var aref = fs.doc(CL.db, 'stores', sid, 'admins', CL.uid);
+    return fs.getDoc(aref).then(function(s){ return s.exists(); }, function(){ return false; })
+    .then(function(isAdm){
+      if(isAdm || !key) return isAdm;
+      return fs.setDoc(aref, {key:key}).then(function(){ return true; }, function(){
+        alert('지점장 링크가 올바르지 않아요. 직원 화면으로 열게요.');
+        CL.key = null; return false;
+      });
+    }).then(function(isAdm){
+      CL.role = isAdm ? 'admin' : 'staff';
+      try{ localStorage.setItem(LINK_KEY, JSON.stringify({sid:sid, key:CL.key})); }catch(e){}
+      CL.unsubStore = fs.onSnapshot(storeRef(), function(snap){
+        if(!snap.exists()){ setStatus('매장을 찾을 수 없어요. 링크를 다시 확인해 주세요.'); return; }
+        var d = snap.data();
+        CL.storeName = d.name || '';
+        if(!CL.setTimer){
+          ['staff','closed','closedCounts','needWd','needWe','nextId'].forEach(function(k){ if(d[k] !== undefined) S[k] = d[k]; });
+        }
+        save(); setStatus('');
+        var ae = document.activeElement;
+        if(!(ae && $('staffList').contains(ae))) renderStaff();
+        renderDows();
+        if(!(ae && (ae.id === 'needWd' || ae.id === 'needWe'))) renderNeed();
+        renderWho(); renderCal(); renderResult(); renderCloud();
+      }, function(e){ setStatus(errMsg(e)); });
+      subscribeMonth();
+      applyMode(); renderAll();
+    });
+  }).catch(function(e){ setStatus('연결하지 못했어요. ' + errMsg(e)); });
+}
+
+function subscribeMonth(){
+  if(!CL.on || !CL.f) return;
+  if(CL.unsubMonth) CL.unsubMonth();
+  var k = mk();
+  CL.unsubMonth = CL.f.onSnapshot(monthRef(k), function(snap){
+    var d = snap.exists() ? snap.data() : {};
+    S.requests[k] = d.requests || {};
+    if(d.schedule) S.schedules[k] = d.schedule; else delete S.schedules[k];
+    CL.locked[k] = !!d.locked;
+    save(); renderWho(); renderCal(); renderResult(); renderCloud();
+  }, function(e){ setStatus(errMsg(e)); });
+}
+
+function disconnect(){
+  var msg = CL.role === 'admin'
+    ? '이 기기에서 매장 연결을 끊을까요?\n매장 자료는 지워지지 않고, 지점장 링크로 다시 들어올 수 있어요.'
+    : '이 기기에서 매장 연결을 끊을까요?\n직원용 링크로 다시 들어올 수 있어요.';
+  if(!confirm(msg)) return;
+  if(CL.unsubStore) CL.unsubStore();
+  if(CL.unsubMonth) CL.unsubMonth();
+  try{ localStorage.removeItem(LINK_KEY); }catch(e){}
+  CL.on = false; CL.role = null; CL.sid = null; CL.key = null; CL.storeName = ''; CL.status = '';
+  KEY = 'refuss_roster_v1';
+  S = load() || defaultState();
+  try{ history.replaceState(null, '', location.pathname); }catch(e){}
+  applyMode(); renderAll();
+}
+
+/* 바뀐 내용 올리기 */
+function cloudSettings(){
+  if(!CL.on || CL.role !== 'admin' || !CL.f) return;
+  clearTimeout(CL.setTimer);
+  CL.setTimer = setTimeout(function(){
+    CL.f.updateDoc(storeRef(), settingsData())
+      .then(function(){ CL.setTimer = null; }, function(e){ CL.setTimer = null; setStatus(errMsg(e)); });
+  }, 700);
+}
+function cloudReq(id, day, add){
+  if(!CL.on || !CL.f) return;
+  var o = {}; o[id] = add ? CL.f.arrayUnion(day) : CL.f.arrayRemove(day);
+  CL.f.setDoc(monthRef(), {requests:o}, {merge:true}).catch(function(e){ setStatus(errMsg(e)); });
+}
+function cloudSchedule(){
+  if(!CL.on || CL.role !== 'admin' || !CL.f) return;
+  CL.f.setDoc(monthRef(), {schedule:S.schedules[mk()] || null}, {mergeFields:['schedule']}).catch(function(e){ setStatus(errMsg(e)); });
+}
+function cloudLock(v){
+  if(!CL.on || CL.role !== 'admin' || !CL.f) return;
+  CL.f.setDoc(monthRef(), {locked:!!v}, {mergeFields:['locked']}).catch(function(e){ setStatus(errMsg(e)); });
+}
+
+/* 화면 */
+function applyMode(){
+  document.body.classList.toggle('mode-cloud', CL.on);
+  document.body.classList.toggle('mode-staff', isStaff());
+  $('reqHint').textContent = isStaff()
+    ? '내 이름을 고르고, 쉬고 싶은 날짜를 누르세요. 다시 누르면 취소돼요. 지점장님 화면에 바로 전달돼요.'
+    : '직원 이름을 먼저 고르고, 쉬고 싶은 날짜를 누르세요. 다시 누르면 취소돼요.';
+  $('footNote').textContent = CL.on
+    ? '입력한 내용은 매장 링크를 가진 사람들과 실시간으로 함께 저장돼요.'
+    : '입력한 내용은 이 기기(브라우저)에만 저장됩니다. 직원과 함께 쓰려면 아래 「직원과 함께 쓰기」를 이용하세요.';
+}
+function renumber(){
+  var n = 1;
+  document.querySelectorAll('section.step .num').forEach(function(el){
+    if(el.offsetParent !== null) el.textContent = n++;
+  });
+}
+function copyText(t, btn){
+  function done(){ var o = btn.textContent; btn.textContent = '복사됐어요'; setTimeout(function(){ btn.textContent = o; }, 1500); }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done, function(){ prompt('아래 링크를 복사하세요', t); }); }
+  else prompt('아래 링크를 복사하세요', t);
+}
+function renderCloud(){
+  var bar = $('cloudBar'), box = $('cloudBox'), h = '';
+  if(CL.on){
+    bar.style.display = 'flex';
+    bar.innerHTML = '<span class="dot' + (CL.status ? ' warn' : '') + '"></span>'+
+      '<span class="bar-t"><b>' + esc(CL.storeName || '매장') + '</b> · ' + (CL.role === 'admin' ? '지점장' : '직원') + ' 화면' +
+      (CL.status ? '<br><span class="bar-s">' + esc(CL.status) + '</span>' : ' · 실시간 연결됨') + '</span>' +
+      (isStaff() ? '<button type="button" class="btn ghost" id="discBtn2" style="height:40px;font-size:15px">연결 끊기</button>' : '');
+  } else bar.style.display = 'none';
+
+  if(!FB_CONFIG){
+    h = '<p class="hint" style="margin:0">함께 쓰기는 아직 준비 중이에요.</p>';
+  } else if(!canCloud()){
+    h = '<p class="hint" style="margin:0">함께 쓰기는 이 파일이 아니라 <b>인터넷 주소</b>로 열었을 때 쓸 수 있어요.</p>';
+  } else if(!CL.on){
+    h = '<p class="hint">매장을 만들면 <b>직원용 링크</b>가 생겨요. 직원이 링크로 들어와 자기 휴무를 신청하면 이 화면에 바로 모여요.<br>지금 이 기기에 입력한 직원·휴무 신청은 그대로 옮겨져요.</p>'+
+      (CL.status ? '<p class="cloud-err">' + esc(CL.status) + '</p>' : '') +
+      '<button type="button" class="btn red" id="createStore">매장 만들고 직원과 함께 쓰기</button>';
+  } else if(CL.role === 'admin'){
+    var lk = CL.locked[mk()];
+    h = '<div class="link-row"><div class="link-l"><b>직원용 링크</b><span>단톡방에 올려 주세요. 직원은 휴무 신청과 근무표 보기만 할 수 있어요.</span></div>'+
+        '<input type="text" readonly value="' + esc(staffLink()) + '" onclick="this.select()">'+
+        '<div class="row"><button type="button" class="btn red" data-copy="staff">링크 복사</button>' +
+        (navigator.share ? '<button type="button" class="btn" id="shareBtn">보내기</button>' : '') + '</div></div>';
+    h += '<div class="link-row"><div class="link-l"><b>지점장용 링크</b><span class="warn-t">직원에게 보내지 마세요.</span> <span>내 다른 휴대폰·PC에서 관리할 때 쓰는 링크예요.</span></div>' +
+        (CL.key ? '<input type="text" readonly value="' + esc(adminLink()) + '" onclick="this.select()"><div class="row"><button type="button" class="btn dark" data-copy="admin">링크 복사</button></div>'
+                : '<span class="hint">처음 매장을 만든 기기에서 확인할 수 있어요.</span>') + '</div>';
+    h += '<label class="check"><input type="checkbox" id="lockChk"' + (lk ? ' checked' : '') + '> ' + S.month + '월 휴무 신청 마감하기 <span class="hint" style="margin:0">(마감하면 직원이 더 이상 바꿀 수 없어요)</span></label>';
+    h += '<div class="row" style="margin-top:14px"><button type="button" class="btn ghost" id="discBtn">이 기기에서 연결 끊기</button></div>';
+  }
+  box.innerHTML = h;
+
+  var lockMsg = $('lockMsg');
+  lockMsg.style.display = (CL.on && CL.locked[mk()]) ? 'block' : 'none';
+  lockMsg.textContent = isStaff() ? S.month + '월 휴무 신청이 마감됐어요. 바꾸려면 지점장님께 말씀해 주세요.' : S.month + '월 휴무 신청을 마감했어요. 직원은 더 이상 바꿀 수 없어요.';
+}
+document.addEventListener('click', function(e){
+  var t = e.target;
+  if(t.id === 'createStore') createStore();
+  else if(t.id === 'discBtn' || t.id === 'discBtn2') disconnect();
+  else if(t.dataset && t.dataset.copy) copyText(t.dataset.copy === 'admin' ? adminLink() : staffLink(), t);
+  else if(t.id === 'shareBtn') navigator.share({title:(CL.storeName || '레푸스') + ' 휴무 신청', text:'아래 링크에서 이번 달 휴무를 신청해 주세요.', url:staffLink()}).catch(function(){});
+});
+document.addEventListener('change', function(e){ if(e.target.id === 'lockChk') cloudLock(e.target.checked); });
+
+function startCloud(){
+  if(!canCloud()) return;
+  var h = parseHash(), saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(LINK_KEY) || 'null'); }catch(e){}
+  if(h.s) connect(h.s, h.k || (saved && saved.sid === h.s ? saved.key : null));
+  else if(saved && saved.sid) connect(saved.sid, saved.key);
+}
+
+function renderAll(){ renderYM(); renderStaff(); renderDows(); renderNeed(); renderWho(); renderCal(); renderResult(); renderCloud(); renumber(); }
+applyMode();
 renderAll();
+startCloud();
 })();
 </script>
 <div id="installBar" class="no-print" style="display:none;position:fixed;left:16px;right:16px;bottom:16px;z-index:50;max-width:520px;margin:0 auto;background:#fff;border:1px solid #F0E1E5;border-radius:20px;box-shadow:0 10px 30px rgba(216,50,90,.18);padding:14px 16px;align-items:center;gap:12px">
