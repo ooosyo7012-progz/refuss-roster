@@ -1142,6 +1142,9 @@ startCloud();
 (function(){
   if(!('serviceWorker' in navigator) || location.protocol.indexOf('http')!==0) return;
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  // 새 버전이 올라오면 한 번 자동으로 새로 고침
+  var hadCtrl = !!navigator.serviceWorker.controller, reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function(){ if(hadCtrl && !reloaded){ reloaded = true; location.reload(); } });
   var bar=document.getElementById('installBar'), btn=document.getElementById('installBtn'), msg=document.getElementById('installMsg');
   var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   var closed=false; try{ closed = localStorage.getItem('refuss_install_closed')==='1'; }catch(e){}

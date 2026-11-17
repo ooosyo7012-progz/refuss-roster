@@ -1,5 +1,5 @@
 // 레푸스 근무표 — 한 번 열면 인터넷 없이도 열리도록 파일을 저장해 둡니다.
-var CACHE = 'refuss-roster-v3';
+var CACHE = 'refuss-roster-v4';
 var FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(FILES); }).then(function(){ return self.skipWaiting(); }));
@@ -16,8 +16,10 @@ self.addEventListener('fetch', function(e){
   var u = new URL(e.request.url);
   var OK = ['www.gstatic.com','hangeul.pstatic.net','fonts.googleapis.com','fonts.gstatic.com'];
   if(u.origin !== location.origin && OK.indexOf(u.hostname) < 0) return;
+  // 우리 앱 화면 파일은 브라우저 임시 저장(최대 10분)을 건너뛰고 늘 최신으로 받아 옵니다.
+  var fresh = (u.origin === location.origin) ? fetch(e.request.url, {cache:'no-cache', credentials:'same-origin'}) : fetch(e.request);
   e.respondWith(
-    fetch(e.request).then(function(res){
+    fresh.then(function(res){
       var copy = res.clone();
       caches.open(CACHE).then(function(c){ c.put(e.request, copy); });
       return res;
